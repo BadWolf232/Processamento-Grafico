@@ -14,6 +14,8 @@ using namespace std;
 GLFWwindow* Window = nullptr;
 GLuint Shader_programm = 0;
 GLuint Vao = 0;
+GLuint Shader_color = 0;
+GLuint Shader_texture = 0;
 int nVertices;
 unsigned int texture1;
 int WIDTH = 800;
@@ -21,20 +23,19 @@ int HEIGHT = 600;
 
 float Tempo_entre_frames = 0.0f;
 
-// Variáveis da câmera
+
 float Cam_speed = 5.0f;
 glm::vec3 Cam_pos = glm::vec3(0.0f, 0.0f, 2.0f);
 glm::vec3 Cam_front = glm::vec3(0.0f, 0.0f, -1.0f);
 glm::vec3 Cam_up = glm::vec3(0.0f, 1.0f, 0.0f);
 
-float Cam_yaw = 0.0f; // Iniciar em -90 para olhar direto no eixo Z negativo
+float Cam_yaw = 0.0f;
 float Cam_pitch = 0.0f;
 
 double lastX = WIDTH / 2.0;
 double lastY = HEIGHT / 2.0;
 bool primeiro_mouse = true;
 
-// Variável para controlar o Field of View (Mecânica de Zoom)
 float Cam_fov = 67.0f;
 
 
@@ -175,7 +176,7 @@ void carregarTextura(string filePATH){
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, format, GL_UNSIGNED_BYTE, data);
         glGenerateMipmap(GL_TEXTURE_2D);
     }
     else{
@@ -239,7 +240,6 @@ void inicializaObjetos() {
     glGenVertexArrays(1, &Vao);
     glBindVertexArray(Vao);
 
-    // VBO dos vértices do cubo
     float points[] = {
         0.5f,  1.5f,  0.5f,  0.5f, -0.5f,  0.5f, -0.5f, -0.5f,  0.5f,
        -0.5f,  0.5f,  0.5f,  0.5f,  0.5f,  0.5f, -0.5f, -0.5f,  0.5f,
@@ -262,7 +262,6 @@ void inicializaObjetos() {
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
 
-    // VBO das cores
     float cores[] = {
         1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f,
         0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f,
@@ -294,7 +293,7 @@ void inicializaShaders() {
 
     GLuint fs = glCreateShader(GL_FRAGMENT_SHADER);
     glShaderSource(fs, 1, &fragment_shader, NULL);
-    glCompileShader(fs);
+    glCompileShader(fs); 
 
     Shader_programm = glCreateProgram();
     glAttachShader(Shader_programm, vs);
@@ -302,7 +301,32 @@ void inicializaShaders() {
     glLinkProgram(Shader_programm);
 
     glDeleteShader(vs);
-    glDeleteShader(fs);
+    glDeleteShader(fs); 
+
+
+
+    std::string vertexCodeTexture = leShaderDoArquivo("../assets/shaders/vertex_shader_texture.glsl");
+    std::string fragmentCodeTexture = leShaderDoArquivo("../assets/shaders/fragment_shader_texture.glsl");
+
+    const char* vertex_texture_shader = vertexCodeTexture.c_str();
+    const char* fragment_texture_shader = fragmentCodeTexture.c_str();
+
+    GLuint vs_texture = glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(vs_texture, 1, &vertex_texture_shader, NULL);
+    glCompileShader(vs_texture);
+
+    GLuint fs_texture = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(fs_texture, 1, &fragment_texture_shader, NULL);
+    glCompileShader(fs_texture);
+
+    Shader_texture = glCreateProgram();
+    glAttachShader(Shader_texture, vs_texture);
+    glAttachShader(Shader_texture, fs_texture);
+    glLinkProgram(Shader_texture);
+
+    glDeleteShader(vs_texture);
+    glDeleteShader(fs_texture);
+    
 }
 
 void atualizaDirecaoCamera() {
@@ -318,11 +342,10 @@ void trataTeclado() {
         glfwSetWindowShouldClose(Window, true);
     }
 
-    // Controle de Zoom: Se a tecla Z estiver pressionada, diminui o FOV da lente
     if (glfwGetKey(Window, GLFW_KEY_Z) == GLFW_PRESS) {
-        Cam_fov = 20.0f; // Visão de aproximação
+        Cam_fov = 20.0f;
     } else {
-        Cam_fov = 67.0f; // Visão normal padrão
+        Cam_fov = 67.0f;
     }
 
     glm::vec3 Cam_right = glm::normalize(glm::cross(Cam_front, Cam_up));
@@ -341,40 +364,32 @@ void trataTeclado() {
         Cam_pos.y -= Cam_speed * Tempo_entre_frames;
 }
 
-// Função auxiliar para desenhar o cenário em diferentes views
 void desenhaCenario() {
     GLint transformLoc = glGetUniformLocation(Shader_programm, "model");
     glm::mat4 transformacao;
 
-    // 1. CHÃO (Mantém o topo Amarelo)
     transformacao = glm::mat4(1.0f);
     transformacao = glm::translate(transformacao, glm::vec3(0.0f, -2.0f, -10.0f));
     transformacao = glm::scale(transformacao, glm::vec3(30.0f, 0.5f, 30.0f));
     glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(transformacao));
     glDrawArrays(GL_TRIANGLES, 0, 36);
 
-    // 2. PAREDE ESQUERDA (Rotacionada 90 graus no eixo Z para o topo ficar Ciano)
     transformacao = glm::mat4(1.0f);
     transformacao = glm::translate(transformacao, glm::vec3(-8.0f, 0.0f, -10.0f));
     transformacao = glm::rotate(transformacao, glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-    // Como rotacionamos em Z, a escala local de X vira a altura global (Y)
     transformacao = glm::scale(transformacao, glm::vec3(4.0f, 1.0f, 15.0f)); 
     glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(transformacao));
     glDrawArrays(GL_TRIANGLES, 0, 36);
 
-    // 3. PILAR DIREITO (Rotacionado -90 graus no eixo X para o topo ficar Vermelho)
     transformacao = glm::mat4(1.0f);
     transformacao = glm::translate(transformacao, glm::vec3(5.0f, 0.0f, -5.0f));
     transformacao = glm::rotate(transformacao, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-    // Como rotacionamos em X, a escala local de Z vira a altura global (Y)
     transformacao = glm::scale(transformacao, glm::vec3(2.0f, 2.0f, 5.0f));
     glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(transformacao));
     glDrawArrays(GL_TRIANGLES, 0, 36);
 
-    // 4. ITEM EM DESTAQUE (Cubo girando no centro do cenário)
     transformacao = glm::mat4(1.0f);
     transformacao = glm::translate(transformacao, glm::vec3(0.0f, 0.0f, -8.0f));
-    // Aplica a rotação contínua baseada no tempo
     transformacao = glm::rotate(transformacao, (float)glfwGetTime(), glm::vec3(0.5f, 1.0f, 0.0f));
     glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(transformacao));
     glDrawArrays(GL_TRIANGLES, 0, 36);
@@ -399,19 +414,15 @@ void inicializaRenderizacao() {
         trataTeclado();
         atualizaDirecaoCamera();
 
-        // -------------------------------------------------------------
-        // ETAPA 1: VISÃO PRINCIPAL EM PERSPECTIVA (TELA CHEIA)
-        // -------------------------------------------------------------
         
-        // Define que a viewport ocupará toda a janela
         glViewport(0, 0, WIDTH, HEIGHT);
 
-        // Matriz de Visualização usando a posição controlada pelo usuário
+       
         glm::mat4 viewPerspectiva = glm::lookAt(Cam_pos, Cam_pos + Cam_front, Cam_up);
         GLint viewLoc = glGetUniformLocation(Shader_programm, "view");
         glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(viewPerspectiva));
 
-        // Matriz de Projeção utilizando a variável Cam_fov dinamicamente para o Zoom
+        
         float aspecto = (float)WIDTH / (float)HEIGHT;
         glm::mat4 projPerspectiva = glm::perspective(glm::radians(Cam_fov), aspecto, 0.1f, 100.0f);
         GLint projLoc = glGetUniformLocation(Shader_programm, "proj");
@@ -419,21 +430,14 @@ void inicializaRenderizacao() {
 
         desenhaCenario();
 
-        // -------------------------------------------------------------
-        // ETAPA 2: MINIMAPA ORTOGRÁFICO (PICTURE-IN-PICTURE)
-        // -------------------------------------------------------------
-
-        // Antes de desenhar novamente, limpamos apenas o Z-Buffer 
-        // para que os objetos do minimapa não se misturem com a tela principal
+    
         glClear(GL_DEPTH_BUFFER_BIT);
 
-        // Define a nova viewport no canto superior direito
-        int mapa_size = 200; // Tamanho do quadrado do minimapa
+        
+        int mapa_size = 200; 
         glViewport(WIDTH - mapa_size, HEIGHT - mapa_size, mapa_size, mapa_size);
 
-        // Recalcula a Matriz de Visualização
-        // Colocamos a câmera bem alto no eixo Y, olhando para o centro do mapa (0, 0, 0)
-        // O vetor 'up' agora é o eixo Z, para que a tela não gire incorretamente ao olhar para baixo
+    
         glm::vec3 mapa_pos = glm::vec3(0.0f, 30.0f, 0.0f);
         glm::vec3 mapa_front = glm::vec3(0.0f, -1.0f, 0.0f);
         glm::vec3 mapa_up = glm::vec3(0.0f, 0.0f, -1.0f); 
@@ -441,12 +445,15 @@ void inicializaRenderizacao() {
         glm::mat4 viewOrtografica = glm::lookAt(mapa_pos, mapa_pos + mapa_front, mapa_up);
         glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(viewOrtografica));
 
-        // Recalcula a Matriz de Projeção para Ortográfica (sem ponto de fuga)
-        float limite = 15.0f; // Define a "largura" e "altura" do que será capturado pela câmera
+        
+        float limite = 15.0f; 
         glm::mat4 projOrtografica = glm::ortho(-limite, limite, -limite, limite, 0.1f, 100.0f);
         glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projOrtografica));
 
+        glUseProgram(Shader_programm);
+
         desenhaCenario();
+        
 
         glfwPollEvents();
         glfwSwapBuffers(Window);
@@ -457,6 +464,8 @@ void inicializaRenderizacao() {
 
 int main() {
     inicializaOpenGL();
+    loadSimpleOBJ("../assets/obj/cube.obj", nVertices);
+    carregarTextura("../assets/textures/texture.png");
     inicializaObjetos();
     inicializaShaders();
     inicializaRenderizacao();

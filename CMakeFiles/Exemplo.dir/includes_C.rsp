@@ -1,0 +1,1 @@
+-ID:/OpenPG/include -ID:/OpenPG/common -ID:/OpenPG/include/glad -I"D:/OpenPG/build/_deps/glm-src" -I"D:/OpenPG/build/_deps/stb_image-src" -I"D:/OpenPG/build/_deps/glfw-src/include"

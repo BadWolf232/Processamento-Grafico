@@ -1,0 +1,7 @@
+{
+	"InstallScripts" : 
+	[
+		"D:/OpenPG/build/_deps/glm-subbuild/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

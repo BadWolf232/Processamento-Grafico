@@ -1,5 +1,5 @@
 #version 330 core
-in vec3 ourColor; // Recebe a cor interpolada do Vertex Shader
+in vec3 ourColor; 
 out vec4 FragColor;
 
 void main() {

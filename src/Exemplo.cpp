@@ -261,15 +261,15 @@ void inicializaObjetos() {
     glBufferData(GL_ARRAY_BUFFER, sizeof(points), points, GL_STATIC_DRAW);
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
-
-    float cores[] = {
-        1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f,
-        0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f,
-        0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f,
-        0.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f,
-        1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f,
-        1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f,
-    };
+float cores[] = {
+ 
+    0.45f, 0.29f, 0.15f, 0.45f, 0.29f, 0.15f, 0.45f, 0.29f, 0.15f, 0.45f, 0.29f, 0.15f, 0.45f, 0.29f, 0.15f, 0.45f, 0.29f, 0.15f,
+    0.45f, 0.29f, 0.15f, 0.45f, 0.29f, 0.15f, 0.45f, 0.29f, 0.15f, 0.45f, 0.29f, 0.15f, 0.45f, 0.29f, 0.15f, 0.45f, 0.29f, 0.15f,
+    0.45f, 0.29f, 0.15f, 0.45f, 0.29f, 0.15f, 0.45f, 0.29f, 0.15f, 0.45f, 0.29f, 0.15f, 0.45f, 0.29f, 0.15f, 0.45f, 0.29f, 0.15f,
+    0.45f, 0.29f, 0.15f, 0.45f, 0.29f, 0.15f, 0.45f, 0.29f, 0.15f, 0.45f, 0.29f, 0.15f, 0.45f, 0.29f, 0.15f, 0.45f, 0.29f, 0.15f,
+    0.45f, 0.29f, 0.15f, 0.45f, 0.29f, 0.15f, 0.45f, 0.29f, 0.15f, 0.45f, 0.29f, 0.15f, 0.45f, 0.29f, 0.15f, 0.45f, 0.29f, 0.15f,
+    0.2f, 0.5f, 0.2f, 0.2f, 0.5f, 0.2f, 0.2f, 0.5f, 0.2f, 0.2f, 0.5f, 0.2f, 0.2f, 0.5f, 0.2f, 0.2f, 0.5f, 0.2f,
+};
     
     GLuint cvbo;
     glGenBuffers(1, &cvbo);
@@ -326,7 +326,7 @@ void inicializaShaders() {
 
     glDeleteShader(vs_texture);
     glDeleteShader(fs_texture);
-    
+
 }
 
 void atualizaDirecaoCamera() {
@@ -374,25 +374,7 @@ void desenhaCenario() {
     glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(transformacao));
     glDrawArrays(GL_TRIANGLES, 0, 36);
 
-    transformacao = glm::mat4(1.0f);
-    transformacao = glm::translate(transformacao, glm::vec3(-8.0f, 0.0f, -10.0f));
-    transformacao = glm::rotate(transformacao, glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-    transformacao = glm::scale(transformacao, glm::vec3(4.0f, 1.0f, 15.0f)); 
-    glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(transformacao));
-    glDrawArrays(GL_TRIANGLES, 0, 36);
-
-    transformacao = glm::mat4(1.0f);
-    transformacao = glm::translate(transformacao, glm::vec3(5.0f, 0.0f, -5.0f));
-    transformacao = glm::rotate(transformacao, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-    transformacao = glm::scale(transformacao, glm::vec3(2.0f, 2.0f, 5.0f));
-    glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(transformacao));
-    glDrawArrays(GL_TRIANGLES, 0, 36);
-
-    transformacao = glm::mat4(1.0f);
-    transformacao = glm::translate(transformacao, glm::vec3(0.0f, 0.0f, -8.0f));
-    transformacao = glm::rotate(transformacao, (float)glfwGetTime(), glm::vec3(0.5f, 1.0f, 0.0f));
-    glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(transformacao));
-    glDrawArrays(GL_TRIANGLES, 0, 36);
+    
 }
 
 void inicializaRenderizacao() {

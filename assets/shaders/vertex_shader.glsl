@@ -1,8 +1,8 @@
 #version 330 core
 layout (location = 0) in vec3 aPos;
-layout (location = 1) in vec3 aColor; // Recebe a cor do VBO
+layout (location = 1) in vec3 aColor; 
 
-out vec3 ourColor; // Repassa a cor para o Fragment Shader
+out vec3 ourColor; 
 
 uniform mat4 model;
 uniform mat4 view;

@@ -17,7 +17,24 @@ GLuint Vao = 0;
 GLuint Shader_color = 0;
 GLuint Shader_texture = 0;
 int nVertices;
-unsigned int texture1;
+
+struct TipoModelo {
+    GLuint Vao;
+    int nVertices;
+};
+
+struct InstanciaModelo {
+    int tipoIndex;
+    glm::vec3 posicao;
+    glm::vec3 escala;
+    float rotacaoY;
+};
+
+std::vector<TipoModelo> tiposModelos;
+std::vector<InstanciaModelo> instancias;
+GLuint texColormap;
+
+
 int WIDTH = 800;
 int HEIGHT = 600;
 
@@ -152,12 +169,13 @@ std::string leShaderDoArquivo(const char* caminhoArquivo) {
     return shaderStream.str();
 }
 
-void carregarTextura(string filePATH){
+GLuint carregarTextura(string filePATH){
 
     stbi_set_flip_vertically_on_load(true);
 
     int width, height, nrChannels;
     unsigned char *data = stbi_load(filePATH.c_str(), &width, &height, &nrChannels, 0);
+    GLuint textura = 0;
 
     if (data){
 
@@ -168,8 +186,8 @@ void carregarTextura(string filePATH){
             format = GL_RGB; 
         else if (nrChannels == 4)
             format = GL_RGBA;  
-        glGenTextures(1, &texture1);
-        glBindTexture(GL_TEXTURE_2D, texture1);
+        glGenTextures(1, &textura);
+        glBindTexture(GL_TEXTURE_2D, textura);
 
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
@@ -185,8 +203,30 @@ void carregarTextura(string filePATH){
 
     stbi_image_free(data);
 
-  
+    return textura;
 }
+
+void carregaModelosObj(){
+
+    texColormap = carregarTextura("../assets/obj/Textures/colormap.png");
+
+    int nv; 
+
+    GLuint vao_building = loadSimpleOBJ("../assets/obj/building-a.obj", nv);
+    tiposModelos.push_back({vao_building, nv});
+
+    GLuint vao_building_i = loadSimpleOBJ("../assets/obj/building-i.obj", nv);
+    tiposModelos.push_back({vao_building_i, nv});
+
+
+    instancias.push_back({0, glm::vec3(0.0f, -1.75f, -10.0f),  glm::vec3(1.0f), 0.0f});  
+    instancias.push_back({1, glm::vec3(8.0f, -1.75f, -6.0f),   glm::vec3(1.0f), 0.0f});  
+    
+    
+}
+
+
+
 
 void redimensionaCallback(GLFWwindow* window, int w, int h) {
     WIDTH = w;
@@ -306,8 +346,8 @@ void inicializaShaders() {
 
 
 
-    std::string vertexCodeTexture = leShaderDoArquivo("../assets/shaders/vertex_shader_texture.glsl");
-    std::string fragmentCodeTexture = leShaderDoArquivo("../assets/shaders/fragment_shader_texture.glsl");
+    std::string vertexCodeTexture = leShaderDoArquivo("../assets/shaders/vertex_texture.glsl");
+    std::string fragmentCodeTexture = leShaderDoArquivo("../assets/shaders/fragment_texture_shader.glsl");
 
     const char* vertex_texture_shader = vertexCodeTexture.c_str();
     const char* fragment_texture_shader = fragmentCodeTexture.c_str();
@@ -324,6 +364,14 @@ void inicializaShaders() {
     glAttachShader(Shader_texture, vs_texture);
     glAttachShader(Shader_texture, fs_texture);
     glLinkProgram(Shader_texture);
+
+    GLint successTex;
+    char infoLogTex[512];
+    glGetProgramiv(Shader_texture, GL_LINK_STATUS, &successTex);
+    if (!successTex) {
+        glGetProgramInfoLog(Shader_texture, 512, NULL, infoLogTex);
+        std::cerr << "Erro ao linkar Shader_texture:\n" << infoLogTex << std::endl;
+    }
 
     glDeleteShader(vs_texture);
     glDeleteShader(fs_texture);
@@ -365,7 +413,7 @@ void trataTeclado() {
         Cam_pos.y -= Cam_speed * Tempo_entre_frames;
 }
 
-void desenhaCenario() {
+void desenhaCenario(glm::mat4 view , glm::mat4 proj ) {
     GLint transformLoc = glGetUniformLocation(Shader_programm, "model");
     glm::mat4 transformacao;
 
@@ -375,7 +423,32 @@ void desenhaCenario() {
     glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(transformacao));
     glDrawArrays(GL_TRIANGLES, 0, 36);
 
-    
+}
+
+void desenhaModeloOBJ(glm::mat4 view, glm::mat4 proj) {
+
+    glUseProgram(Shader_texture);
+
+    glActiveTexture(GL_TEXTURE0);
+    glUniform1i(glGetUniformLocation(Shader_texture, "textura1"), 0); 
+
+    for( InstanciaModelo& instancia : instancias) {
+        TipoModelo& tipo = tiposModelos[instancia.tipoIndex];
+
+        glBindTexture(GL_TEXTURE_2D, texColormap);
+
+        glm::mat4 model = glm::mat4(1.0f);
+        model = glm::translate(model, instancia.posicao);
+        model = glm::rotate(model, glm::radians(instancia.rotacaoY), glm::vec3(0.0f, 1.0f, 0.0f));
+        model = glm::scale(model, instancia.escala);
+
+        glUniformMatrix4fv(glGetUniformLocation(Shader_texture, "model"), 1, GL_FALSE, glm::value_ptr(model));
+        glUniformMatrix4fv(glGetUniformLocation(Shader_texture, "view"), 1, GL_FALSE, glm::value_ptr(view));
+        glUniformMatrix4fv(glGetUniformLocation(Shader_texture, "proj"), 1, GL_FALSE, glm::value_ptr(proj));
+
+        glBindVertexArray(tipo.Vao);
+        glDrawArrays(GL_TRIANGLES, 0, nVertices);
+    }   
 }
 
 void inicializaRenderizacao() {
@@ -405,13 +478,13 @@ void inicializaRenderizacao() {
         GLint viewLoc = glGetUniformLocation(Shader_programm, "view");
         glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(viewPerspectiva));
 
-        
         float aspecto = (float)WIDTH / (float)HEIGHT;
         glm::mat4 projPerspectiva = glm::perspective(glm::radians(Cam_fov), aspecto, 0.1f, 100.0f);
         GLint projLoc = glGetUniformLocation(Shader_programm, "proj");
         glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projPerspectiva));
 
-        desenhaCenario();
+        desenhaCenario(viewPerspectiva, projPerspectiva);
+        desenhaModeloOBJ(viewPerspectiva, projPerspectiva);
 
     
         glClear(GL_DEPTH_BUFFER_BIT);
@@ -426,16 +499,17 @@ void inicializaRenderizacao() {
         glm::vec3 mapa_up = glm::vec3(0.0f, 0.0f, -1.0f); 
         
         glm::mat4 viewOrtografica = glm::lookAt(mapa_pos, mapa_pos + mapa_front, mapa_up);
-        glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(viewOrtografica));
-
-        
         float limite = 15.0f; 
         glm::mat4 projOrtografica = glm::ortho(-limite, limite, -limite, limite, 0.1f, 100.0f);
-        glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projOrtografica));
+
 
         glUseProgram(Shader_programm);
+        glUniformMatrix4fv(glGetUniformLocation(Shader_programm, "view"), 1, GL_FALSE, glm::value_ptr(viewOrtografica));
+        glUniformMatrix4fv(glGetUniformLocation(Shader_programm, "proj"), 1, GL_FALSE, glm::value_ptr(projOrtografica));
 
-        desenhaCenario();
+
+        desenhaCenario(viewOrtografica, projOrtografica);
+        desenhaModeloOBJ(viewOrtografica, projOrtografica);
         
 
         glfwPollEvents();
@@ -447,10 +521,9 @@ void inicializaRenderizacao() {
 
 int main() {
     inicializaOpenGL();
-    loadSimpleOBJ("../assets/obj/cube.obj", nVertices);
-    carregarTextura("../assets/textures/texture.png");
     inicializaObjetos();
     inicializaShaders();
+    carregaModelosObj();
     inicializaRenderizacao();
     return 0;
 }

@@ -261,6 +261,7 @@ void inicializaObjetos() {
     glBufferData(GL_ARRAY_BUFFER, sizeof(points), points, GL_STATIC_DRAW);
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
+    
 float cores[] = {
  
     0.45f, 0.29f, 0.15f, 0.45f, 0.29f, 0.15f, 0.45f, 0.29f, 0.15f, 0.45f, 0.29f, 0.15f, 0.45f, 0.29f, 0.15f, 0.45f, 0.29f, 0.15f,

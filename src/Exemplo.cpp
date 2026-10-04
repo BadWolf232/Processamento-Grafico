@@ -2,6 +2,7 @@
 #include <string>
 #include <fstream>
 #include <sstream>
+#include <vector>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
@@ -21,6 +22,8 @@ int nVertices;
 struct TipoModelo {
     GLuint Vao;
     int nVertices;
+    GLuint Textura;
+    bool temTextura;
 };
 
 struct InstanciaModelo {
@@ -70,8 +73,28 @@ int loadSimpleOBJ(string filePATH, int &nVertices)
         return -1;
     } 
 
+    auto resolveIndex = [](int index, std::size_t size) -> int {
+        if (index > 0) {
+            index -= 1;
+        } else if (index < 0) {
+            index = static_cast<int>(size) + index;
+        } else {
+            return -1;
+        }
+
+        return index >= 0 && index < static_cast<int>(size) ? index : -1;
+    };
+
+    struct FaceVertex {
+        int vertex = -1;
+        int texCoord = -1;
+        int normal = -1;
+    };
+
     std::string linha;
+    int numeroLinha = 0;
     while(std::getline(dadosEntrada, linha)){
+        ++numeroLinha;
         std::istringstream ssLinha(linha);
         std::string word;
         ssLinha >> word;
@@ -92,33 +115,81 @@ int loadSimpleOBJ(string filePATH, int &nVertices)
             normals.push_back(normal);
 
         } else if (word == "f") {
+            std::vector<FaceVertex> face;
 
             while (ssLinha >> word) {
-                int vi = 0, ti = 0, ni = 0;
-
                 std::istringstream ss(word);
                 std::string index;
+                FaceVertex faceVertex;
 
-                if (std::getline(ss, index, '/')) 
-                    vi = !index.empty() ? std::stoi(index) - 1 : -1;
-                if (std::getline(ss, index, '/')) 
-                    ti = !index.empty() ? std::stoi(index) - 1 : -1;
-                if (std::getline(ss, index, '/')) 
-                    ni = !index.empty() ? std::stoi(index) - 1 : -1;
+                try {
+                    if (std::getline(ss, index, '/') && !index.empty()) {
+                        faceVertex.vertex = resolveIndex(
+                            std::stoi(index), vertices.size()
+                        );
+                    }
+                    if (std::getline(ss, index, '/') && !index.empty()) {
+                        faceVertex.texCoord = resolveIndex(
+                            std::stoi(index), textCoords.size()
+                        );
+                    }
+                    if (std::getline(ss, index, '/') && !index.empty()) {
+                        faceVertex.normal = resolveIndex(
+                            std::stoi(index), normals.size()
+                        );
+                    }
+                } catch (const std::exception&) {
+                    std::cerr << "ERRO: indice invalido no OBJ " << filePATH
+                              << " (linha " << numeroLinha << ")" << std::endl;
+                    return -1;
+                }
 
-             
-                vBuffer.push_back(vertices[vi].x);
-                vBuffer.push_back(vertices[vi].y);
-                vBuffer.push_back(vertices[vi].z);
-              
-                vBuffer.push_back(textCoords[ti].s);
-                vBuffer.push_back(textCoords[ti].t);
-                
-             
-                vBuffer.push_back(normals[ni].x);
-                vBuffer.push_back(normals[ni].y);
-                vBuffer.push_back(normals[ni].z);
-                
+                if (faceVertex.vertex < 0) {
+                    std::cerr << "ERRO: vertice invalido no OBJ " << filePATH
+                              << " (linha " << numeroLinha << ")" << std::endl;
+                    return -1;
+                }
+
+                face.push_back(faceVertex);
+            }
+
+            if (face.size() < 3) {
+                std::cerr << "ERRO: face sem vertices suficientes no OBJ "
+                          << filePATH << " (linha " << numeroLinha << ")"
+                          << std::endl;
+                return -1;
+            }
+
+            // Converte faces com quatro ou mais vertices em triangulos.
+            for (std::size_t i = 1; i + 1 < face.size(); ++i) {
+                const FaceVertex triangulo[] = { face[0], face[i], face[i + 1] };
+
+                for (const FaceVertex& faceVertex : triangulo) {
+                    const glm::vec3& vertice = vertices[faceVertex.vertex];
+                    vBuffer.push_back(vertice.x);
+                    vBuffer.push_back(vertice.y);
+                    vBuffer.push_back(vertice.z);
+
+                    if (faceVertex.texCoord >= 0) {
+                        const glm::vec2& textura = textCoords[faceVertex.texCoord];
+                        vBuffer.push_back(textura.s);
+                        vBuffer.push_back(textura.t);
+                    } else {
+                        vBuffer.push_back(0.0f);
+                        vBuffer.push_back(0.0f);
+                    }
+
+                    if (faceVertex.normal >= 0) {
+                        const glm::vec3& normal = normals[faceVertex.normal];
+                        vBuffer.push_back(normal.x);
+                        vBuffer.push_back(normal.y);
+                        vBuffer.push_back(normal.z);
+                    } else {
+                        vBuffer.push_back(0.0f);
+                        vBuffer.push_back(0.0f);
+                        vBuffer.push_back(0.0f);
+                    }
+                }
             }
         }
     }
@@ -152,6 +223,12 @@ int loadSimpleOBJ(string filePATH, int &nVertices)
     nVertices = vBuffer.size() / 8;
 
     std::cout << "Buffer gerado com " << nVertices << " vertices." << std::endl;
+
+    if (nVertices == 0) {
+        std::cerr << "ERRO: o OBJ nao possui faces validas: " << filePATH
+                  << std::endl;
+        return -1;
+    }
 
     return VAO;
 }
@@ -206,21 +283,80 @@ GLuint carregarTextura(string filePATH){
     return textura;
 }
 
+int adicionaModelo(const std::string& caminhoOBJ, const std::string& caminhoTextura = ""){
+    int nv = 0;
+
+    GLuint vao = loadSimpleOBJ(caminhoOBJ, nv);
+
+    if (vao == 0 || nv <= 0) {
+        std::cerr << "Erro ao carregar modelo: "
+                  << caminhoOBJ << std::endl;
+
+        return -1;
+    }
+
+    GLuint textura = 0;
+    bool temTextura = false;
+
+    if (!caminhoTextura.empty()) {
+        textura = carregarTextura(caminhoTextura);
+
+        if (textura != 0) {
+            temTextura = true;
+        }
+    }
+
+    TipoModelo modelo;
+
+    modelo.Vao = vao;
+    modelo.nVertices = nv;
+    modelo.Textura = textura;
+    modelo.temTextura = temTextura;
+
+    tiposModelos.push_back(modelo);
+
+    return static_cast<int>(tiposModelos.size() - 1);
+}
+
+
 void carregaModelosObj(){
 
     texColormap = carregarTextura("../assets/obj/Textures/colormap.png");
 
     int nv; 
 
-    GLuint vao_building = loadSimpleOBJ("../assets/obj/building-a.obj", nv);
-    tiposModelos.push_back({vao_building, nv});
+    int building_a = adicionaModelo(
+        "../assets/obj/building-a.obj",
+        "../assets/obj/Textures/colormap.png"
+    );
 
-    GLuint vao_building_i = loadSimpleOBJ("../assets/obj/building-i.obj", nv);
-    tiposModelos.push_back({vao_building_i, nv});
+    int building_b = adicionaModelo(
+        "../assets/obj/building-b.obj"
+        
+    );
 
 
-    instancias.push_back({0, glm::vec3(0.0f, -1.75f, -10.0f),  glm::vec3(1.0f), 0.0f});  
-    instancias.push_back({1, glm::vec3(8.0f, -1.75f, -6.0f),   glm::vec3(1.0f), 0.0f});  
+    int windmill = adicionaModelo(
+        "../assets/obj/windmill.obj"
+    
+    );
+
+    auto adicionaInstancia = [](int tipoIndex, const glm::vec3& posicao) {
+        if (tipoIndex < 0) {
+            return;
+        }
+
+        instancias.push_back({
+            tipoIndex,
+            posicao,
+            glm::vec3(1.0f),
+            0.0f
+        });
+    };
+
+    adicionaInstancia(building_a, glm::vec3(0.0f, -1.75f, -10.0f));
+    adicionaInstancia(building_b, glm::vec3(5.0f, -1.75f, -8.0f));
+    adicionaInstancia(windmill, glm::vec3(10.0f, -1.75f, -6.0f));
     
     
 }
@@ -260,7 +396,7 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos) {
 void inicializaOpenGL() {
     if (!glfwInit()) exit(EXIT_FAILURE);
 
-    Window = glfwCreateWindow(WIDTH, HEIGHT, "Câmera e Minimapa", NULL, NULL);
+    Window = glfwCreateWindow(WIDTH, HEIGHT, "Vila Industrial", NULL, NULL);
     if (!Window) {
         glfwTerminate();
         exit(EXIT_FAILURE);
@@ -432,23 +568,65 @@ void desenhaModeloOBJ(glm::mat4 view, glm::mat4 proj) {
     glActiveTexture(GL_TEXTURE0);
     glUniform1i(glGetUniformLocation(Shader_texture, "textura1"), 0); 
 
-    for( InstanciaModelo& instancia : instancias) {
+    for (InstanciaModelo& instancia : instancias) {
         TipoModelo& tipo = tiposModelos[instancia.tipoIndex];
 
-        glBindTexture(GL_TEXTURE_2D, texColormap);
-
         glm::mat4 model = glm::mat4(1.0f);
-        model = glm::translate(model, instancia.posicao);
-        model = glm::rotate(model, glm::radians(instancia.rotacaoY), glm::vec3(0.0f, 1.0f, 0.0f));
-        model = glm::scale(model, instancia.escala);
 
-        glUniformMatrix4fv(glGetUniformLocation(Shader_texture, "model"), 1, GL_FALSE, glm::value_ptr(model));
-        glUniformMatrix4fv(glGetUniformLocation(Shader_texture, "view"), 1, GL_FALSE, glm::value_ptr(view));
-        glUniformMatrix4fv(glGetUniformLocation(Shader_texture, "proj"), 1, GL_FALSE, glm::value_ptr(proj));
+        model = glm::translate(
+            model,
+            instancia.posicao
+        );
 
+        model = glm::rotate(
+            model,
+            glm::radians(instancia.rotacaoY),
+            glm::vec3(0.0f, 1.0f, 0.0f)
+        );
+
+        model = glm::scale(
+            model,
+            instancia.escala
+        );
+
+
+        glUniformMatrix4fv(
+            glGetUniformLocation(Shader_texture, "model"),
+            1,
+            GL_FALSE,
+            glm::value_ptr(model)
+        );
+
+        glUniformMatrix4fv(
+            glGetUniformLocation(Shader_texture, "view"),
+            1,
+            GL_FALSE,
+            glm::value_ptr(view)
+        );
+
+        glUniformMatrix4fv(
+            glGetUniformLocation(Shader_texture, "proj"),
+            1,
+            GL_FALSE,
+            glm::value_ptr(proj)
+        );
+
+
+        // Textura do modelo
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, tipo.Textura);
+
+
+        
         glBindVertexArray(tipo.Vao);
-        glDrawArrays(GL_TRIANGLES, 0, nVertices);
-    }   
+
+        
+        glDrawArrays(
+            GL_TRIANGLES,
+            0,
+            tipo.nVertices
+        );
+    }
 }
 
 void inicializaRenderizacao() {
@@ -504,6 +682,7 @@ void inicializaRenderizacao() {
 
 
         glUseProgram(Shader_programm);
+        glBindVertexArray(Vao);
         glUniformMatrix4fv(glGetUniformLocation(Shader_programm, "view"), 1, GL_FALSE, glm::value_ptr(viewOrtografica));
         glUniformMatrix4fv(glGetUniformLocation(Shader_programm, "proj"), 1, GL_FALSE, glm::value_ptr(projOrtografica));
 

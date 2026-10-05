@@ -19,6 +19,12 @@ GLuint Shader_color = 0;
 GLuint Shader_texture = 0;
 int nVertices;
 
+bool wireframeMode = false;
+bool teclaGPress = false; 
+
+bool nortunalMode = false;
+bool teclaNpress = false; 
+
 struct TipoModelo {
     GLuint Vao;
     int nVertices;
@@ -41,7 +47,7 @@ GLuint texColormap;
 int WIDTH = 800;
 int HEIGHT = 600;
 
-float Tempo_entre_frames = 0.0f;
+float Tempo_frames = 0.0f;
 
 
 float Cam_speed = 5.0f;
@@ -160,7 +166,7 @@ int loadSimpleOBJ(string filePATH, int &nVertices)
                 return -1;
             }
 
-            // Converte faces com quatro ou mais vertices em triangulos.
+            
             for (std::size_t i = 1; i + 1 < face.size(); ++i) {
                 const FaceVertex triangulo[] = { face[0], face[i], face[i + 1] };
 
@@ -318,7 +324,6 @@ int adicionaModelo(const std::string& caminhoOBJ, const std::string& caminhoText
     return static_cast<int>(tiposModelos.size() - 1);
 }
 
-
 void carregaModelosObj(){
 
     texColormap = carregarTextura("../assets/obj/Textures/colormap.png");
@@ -331,38 +336,60 @@ void carregaModelosObj(){
     );
 
     int building_b = adicionaModelo(
-        "../assets/obj/building-b.obj"
-        
+        "../assets/obj/building-b.obj",
+        "../assets/obj/Textures/colormap.png"
     );
-
 
     int windmill = adicionaModelo(
-        "../assets/obj/windmill.obj"
-    
+        "../assets/obj/windmill.obj",
+        "../assets/obj/Textures/colormap.png"
     );
 
-    auto adicionaInstancia = [](int tipoIndex, const glm::vec3& posicao) {
-        if (tipoIndex < 0) {
-            return;
-        }
+    int water_tower = adicionaModelo(
+        "../assets/obj/water-tower.obj",
+        "../assets/obj/Textures/colormap.png"
+    ); 
 
-        instancias.push_back({
-            tipoIndex,
-            posicao,
-            glm::vec3(1.0f),
-            0.0f
-        });
-    };
+    int chimney = adicionaModelo(
+        "../assets/obj/chimney-medium.obj",
+        "../assets/obj/Textures/colormap.png"
+    );
 
-    adicionaInstancia(building_a, glm::vec3(0.0f, -1.75f, -10.0f));
-    adicionaInstancia(building_b, glm::vec3(5.0f, -1.75f, -8.0f));
-    adicionaInstancia(windmill, glm::vec3(10.0f, -1.75f, -6.0f));
+    int building_m = adicionaModelo(
+        "../assets/obj/building-m.obj",
+       "../assets/obj/Textures/colormap.png"
+    );
+
+    instancias.push_back({building_a, glm::vec3(-8.0f, -1.75f, -10.0f), glm::vec3(1.0f), -90.0f});
+    instancias.push_back({building_a, glm::vec3(-8.0f, -1.75f, -14.0f), glm::vec3(1.0f), -90.0f});
+    instancias.push_back({building_a, glm::vec3(-8.0f, -1.75f, -20.0f), glm::vec3(1.0f), -90.0f});
+    instancias.push_back({building_a, glm::vec3(-8.0f, -1.75f, -4.0f), glm::vec3(1.0f), -90.0f});
+
+    instancias.push_back({building_b, glm::vec3(8.0f, -1.75f, -4.0f), glm::vec3(1.0f), 90.0f});
+    instancias.push_back({building_b, glm::vec3(8.0f, -1.75f, -10.0f), glm::vec3(1.0f), 90.0f});
+    instancias.push_back({building_b, glm::vec3(8.0f, -1.75f, -14.0f), glm::vec3(1.0f), 90.0f});
+    instancias.push_back({building_b, glm::vec3(8.0f, -1.75f, -20.0f), glm::vec3(1.0f), 90.0f});
+
+
+    instancias.push_back({building_m, glm::vec3(-9.0f, -1.75f, -24.0f), glm::vec3(1.0f), 0.0f});
+    instancias.push_back({building_m, glm::vec3(-3.0f, -1.75f,  -24.0f), glm::vec3(1.0f), 0.0f});
+    instancias.push_back({building_m, glm::vec3( 3.0f, -1.75f,  -24.0f), glm::vec3(1.0f), 0.0f});
+    instancias.push_back({building_m, glm::vec3( 9.0f, -1.75f,  -24.0f), glm::vec3(1.0f), 0.0f});
     
+    instancias.push_back({water_tower, glm::vec3( -12.0f, -1.75f,  -4.0f), glm::vec3(1.0f), 0.0f}); 
+    instancias.push_back({water_tower, glm::vec3( -12.0f, -1.75f,  -10.0f), glm::vec3(1.0f), 0.0f}); 
+    instancias.push_back({water_tower, glm::vec3( -12.0f, -1.75f,  -14.0f), glm::vec3(1.0f), 0.0f}); 
+    instancias.push_back({water_tower, glm::vec3( -12.0f, -1.75f,  -20.0f), glm::vec3(1.0f), 0.0f}); 
+
+    instancias.push_back({windmill, glm::vec3( -13.0f, -1.75f,  2.0f), glm::vec3(1.0f), 45.0f}); 
+    instancias.push_back({windmill, glm::vec3( 13.0f, -1.75f, 2.0f), glm::vec3(1.0f), -45.0f}); 
+
+    instancias.push_back({chimney, glm::vec3( 12.0f, -1.75f,  -4.0f), glm::vec3(1.0f), 0.0f}); 
+    instancias.push_back({chimney, glm::vec3( 12.0f, -1.75f,  -10.0f), glm::vec3(1.0f), 0.0f}); 
+    instancias.push_back({chimney, glm::vec3( 12.0f, -1.75f,  -14.0f), glm::vec3(1.0f), 0.0f}); 
+    instancias.push_back({chimney, glm::vec3( 12.0f, -1.75f,  -20.0f), glm::vec3(1.0f), 0.0f}); 
     
 }
-
-
-
 
 void redimensionaCallback(GLFWwindow* window, int w, int h) {
     WIDTH = w;
@@ -533,20 +560,34 @@ void trataTeclado() {
         Cam_fov = 67.0f;
     }
 
+    if (glfwGetKey(Window, GLFW_KEY_G) == GLFW_PRESS) {
+        if(!teclaGPress){
+        wireframeMode = !wireframeMode;
+        if (wireframeMode) {
+            glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+        } else {
+            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        }
+        teclaGPress = true;
+        }else{
+            teclaGPress = false;
+        }
+    }
+
     glm::vec3 Cam_right = glm::normalize(glm::cross(Cam_front, Cam_up));
 
     if (glfwGetKey(Window, GLFW_KEY_A) == GLFW_PRESS)
-        Cam_pos -= Cam_right * Cam_speed * Tempo_entre_frames;
+        Cam_pos -= Cam_right * Cam_speed * Tempo_frames;
     if (glfwGetKey(Window, GLFW_KEY_D) == GLFW_PRESS)
-        Cam_pos += Cam_right * Cam_speed * Tempo_entre_frames;
+        Cam_pos += Cam_right * Cam_speed * Tempo_frames;
     if (glfwGetKey(Window, GLFW_KEY_W) == GLFW_PRESS)
-        Cam_pos += Cam_front * Cam_speed * Tempo_entre_frames;
+        Cam_pos += Cam_front * Cam_speed * Tempo_frames;
     if (glfwGetKey(Window, GLFW_KEY_S) == GLFW_PRESS)
-        Cam_pos -= Cam_front * Cam_speed * Tempo_entre_frames;
+        Cam_pos -= Cam_front * Cam_speed * Tempo_frames;
     if (glfwGetKey(Window, GLFW_KEY_E) == GLFW_PRESS)
-        Cam_pos.y += Cam_speed * Tempo_entre_frames;
+        Cam_pos.y += Cam_speed * Tempo_frames;
     if (glfwGetKey(Window, GLFW_KEY_Q) == GLFW_PRESS)
-        Cam_pos.y -= Cam_speed * Tempo_entre_frames;
+        Cam_pos.y -= Cam_speed * Tempo_frames;
 }
 
 void desenhaCenario(glm::mat4 view , glm::mat4 proj ) {
@@ -611,13 +652,8 @@ void desenhaModeloOBJ(glm::mat4 view, glm::mat4 proj) {
             glm::value_ptr(proj)
         );
 
-
-        // Textura do modelo
         glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, tipo.Textura);
-
-
-        
+        glBindTexture(GL_TEXTURE_2D, tipo.Textura);       
         glBindVertexArray(tipo.Vao);
 
         
@@ -629,15 +665,15 @@ void desenhaModeloOBJ(glm::mat4 view, glm::mat4 proj) {
     }
 }
 
-void inicializaRenderizacao() {
-    double tempo_anterior = glfwGetTime();
+void renderizacao() {
+    double tempoAnterior = glfwGetTime();
 
     glEnable(GL_DEPTH_TEST);
     
     while (!glfwWindowShouldClose(Window)) {
-        double tempo_frame_atual = glfwGetTime();
-        Tempo_entre_frames = (float)(tempo_frame_atual - tempo_anterior);
-        tempo_anterior = tempo_frame_atual;
+        double tempoFrameAtual = glfwGetTime();
+        Tempo_frames = (float)(tempoFrameAtual - tempoAnterior);
+        tempoAnterior = tempoFrameAtual;
 
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -668,7 +704,7 @@ void inicializaRenderizacao() {
         glClear(GL_DEPTH_BUFFER_BIT);
 
         
-        int mapa_size = 200; 
+        int mapa_size = 300; 
         glViewport(WIDTH - mapa_size, HEIGHT - mapa_size, mapa_size, mapa_size);
 
     
@@ -693,6 +729,7 @@ void inicializaRenderizacao() {
 
         glfwPollEvents();
         glfwSwapBuffers(Window);
+
     }
     
     glfwTerminate();
@@ -703,6 +740,6 @@ int main() {
     inicializaObjetos();
     inicializaShaders();
     carregaModelosObj();
-    inicializaRenderizacao();
+    renderizacao();
     return 0;
 }

@@ -12,61 +12,63 @@
 #include "stb_image.h"
 using namespace std;
 
-GLFWwindow* Window = nullptr;
-GLuint Shader_programm = 0;
-GLuint Vao = 0;
-GLuint Shader_color = 0;
-GLuint Shader_texture = 0;
-int nVertices;
 
-bool wireframeMode = false;
-bool teclaGPress = false; 
+// Variáveis globais
+GLFWwindow* Window = nullptr; // Ponteiro para a janela GLFW
+GLuint Shader_programm = 0; // ID do programa de shader
+GLuint Vao = 0; // ID do Vao
+GLuint Shader_color = 0; // ID do shader de cor
+GLuint Shader_texture = 0; // ID do shader de textura
+int nVertices; // Número de vértices
 
-bool nortunalMode = false;
-bool teclaNpress = false; 
 
-struct TipoModelo {
+
+bool wireframeMode = false; // Variável para alternar entre wireframe e modo completo
+bool teclaGPress = false;  // Variável para controlar o estado da tecla 'G'
+
+// Variáveis para armazenar os IDs dos modelos para a animação do moinho de vento
+int id_moinho_base = -1; 
+int id_moinho_pas = -1; 
+
+struct TipoModelo { // Estrutura para armazenar informações sobre cada tipo de modelo, unindo as diversos modelos
     GLuint Vao;
     int nVertices;
     GLuint Textura;
     bool temTextura;
 };
 
-struct InstanciaModelo {
+struct InstanciaModelo { // Estrutura para armazenar informações sobre cada instância de modelo
     int tipoIndex;
     glm::vec3 posicao;
     glm::vec3 escala;
     float rotacaoY;
 };
 
-std::vector<TipoModelo> tiposModelos;
-std::vector<InstanciaModelo> instancias;
-GLuint texColormap;
+std::vector<TipoModelo> tiposModelos; // Vetor para armazenar os tipos de modelos
+std::vector<InstanciaModelo> instancias; // Vetor para armazenar as instâncias de modelos
+GLuint texColormap; // ID da textura do colormap
 
+int WIDTH = 1000; // Largura da janela
+int HEIGHT = 800; // Altura da janela
 
-int WIDTH = 800;
-int HEIGHT = 600;
+float Tempo_frames = 0.0f; //Variável para armazenar o tempo entre os frames
 
-float Tempo_frames = 0.0f;
+float Cam_velo = 5.0f; // Velocidade da câmera
+glm::vec3 Cam_posicao = glm::vec3(0.0f, 0.0f, 2.0f); // Posição da câmera
+glm::vec3 Cam_dir = glm::vec3(0.0f, 0.0f, -1.0f); // Direção da câmera
+glm::vec3 Cam_cima = glm::vec3(0.0f, 1.0f, 0.0f); // Vetor para cima da câmera
 
+float Cam_yrot = 0.0f; // Ângulo de rotação da câmera no eixo Y
+float Cam_xrot = 0.0f; // Ângulo de rotação da câmera no eixo X
 
-float Cam_speed = 5.0f;
-glm::vec3 Cam_pos = glm::vec3(0.0f, 0.0f, 2.0f);
-glm::vec3 Cam_front = glm::vec3(0.0f, 0.0f, -1.0f);
-glm::vec3 Cam_up = glm::vec3(0.0f, 1.0f, 0.0f);
+double lastX = WIDTH / 2.0; // Posição X do último movimento do mouse
+double lastY = HEIGHT / 2.0; // Posição Y do último movimento do mouse
+bool primeiro_mouse = true; // Verificação do primeiro movimento do mouse
 
-float Cam_yaw = 0.0f;
-float Cam_pitch = 0.0f;
+float Cam_fov = 67.0f; // Fov da camera
 
-double lastX = WIDTH / 2.0;
-double lastY = HEIGHT / 2.0;
-bool primeiro_mouse = true;
-
-float Cam_fov = 67.0f;
-
-
-int loadSimpleOBJ(string filePATH, int &nVertices)
-{
+// Função para carregar um modelo OBJ simples
+int loadSimpleOBJ(string filePATH, int &nVertices){
     std:: vector<glm::vec3> vertices;
     std:: vector<glm::vec2> textCoords;
     std:: vector<glm::vec3> normals; 
@@ -78,7 +80,7 @@ int loadSimpleOBJ(string filePATH, int &nVertices)
         std::cerr << "ERRO: Não foi possivel abrir o arquivo OBJ: " << filePATH << std::endl;
         return -1;
     } 
-
+    // Processar o arquivo OBJ
     auto resolveIndex = [](int index, std::size_t size) -> int {
         if (index > 0) {
             index -= 1;
@@ -96,9 +98,11 @@ int loadSimpleOBJ(string filePATH, int &nVertices)
         int texCoord = -1;
         int normal = -1;
     };
-
+    
+    // Processar as faces do modelo
     std::string linha;
     int numeroLinha = 0;
+    // Ler cada linha do arquivo OBJ
     while(std::getline(dadosEntrada, linha)){
         ++numeroLinha;
         std::istringstream ssLinha(linha);
@@ -166,7 +170,7 @@ int loadSimpleOBJ(string filePATH, int &nVertices)
                 return -1;
             }
 
-            
+            // Triangularizar a face se ela tiver mais de 3 vértices
             for (std::size_t i = 1; i + 1 < face.size(); ++i) {
                 const FaceVertex triangulo[] = { face[0], face[i], face[i + 1] };
 
@@ -202,6 +206,7 @@ int loadSimpleOBJ(string filePATH, int &nVertices)
 
     dadosEntrada.close();
 
+    // Gerar o buffer de geometria do OBJ
     std::cout << "Gerando o Buffer de geometria do OBJ" << std::endl;
     GLuint VBO, VAO;
 
@@ -240,6 +245,7 @@ int loadSimpleOBJ(string filePATH, int &nVertices)
 }
 
 
+// Função para ler o conteúdo de um arquivo de shader
 std::string leShaderDoArquivo(const char* caminhoArquivo) {
     std::ifstream arquivoShader(caminhoArquivo);
     if (!arquivoShader.is_open()) {
@@ -252,6 +258,7 @@ std::string leShaderDoArquivo(const char* caminhoArquivo) {
     return shaderStream.str();
 }
 
+// Função para carregar uma textura
 GLuint carregarTextura(string filePATH){
 
     stbi_set_flip_vertically_on_load(true);
@@ -289,6 +296,7 @@ GLuint carregarTextura(string filePATH){
     return textura;
 }
 
+// Função para adicionar um modelo à lista de tipos de modelos
 int adicionaModelo(const std::string& caminhoOBJ, const std::string& caminhoTextura = ""){
     int nv = 0;
 
@@ -340,11 +348,6 @@ void carregaModelosObj(){
         "../assets/obj/Textures/colormap.png"
     );
 
-    int windmill = adicionaModelo(
-        "../assets/obj/windmill.obj",
-        "../assets/obj/Textures/colormap.png"
-    );
-
     int water_tower = adicionaModelo(
         "../assets/obj/water-tower.obj",
         "../assets/obj/Textures/colormap.png"
@@ -360,15 +363,35 @@ void carregaModelosObj(){
        "../assets/obj/Textures/colormap.png"
     );
 
+    id_moinho_base = adicionaModelo(
+        "../assets/obj/windmill_base.obj",
+        "../assets/obj/Textures/colormap.png"
+    );
+
+    id_moinho_pas = adicionaModelo(
+        "../assets/obj/windmill_pas.obj",
+        "../assets/obj/Textures/colormap.png"
+    );
+
+    int tank_large = adicionaModelo(
+        "../assets/obj/detail-tank-large.obj",
+        "../assets/obj/Textures/colormap.png"
+    );
+
+
+    // Coloca as instâncias dos modelos na vila
+
+    instancias.push_back({tank_large, glm::vec3(0.0f, -1.75f, 0.0f), glm::vec3(1.0f), 0.0f});
+
     instancias.push_back({building_a, glm::vec3(-8.0f, -1.75f, -10.0f), glm::vec3(1.0f), -90.0f});
     instancias.push_back({building_a, glm::vec3(-8.0f, -1.75f, -14.0f), glm::vec3(1.0f), -90.0f});
     instancias.push_back({building_a, glm::vec3(-8.0f, -1.75f, -20.0f), glm::vec3(1.0f), -90.0f});
     instancias.push_back({building_a, glm::vec3(-8.0f, -1.75f, -4.0f), glm::vec3(1.0f), -90.0f});
 
-    instancias.push_back({building_b, glm::vec3(8.0f, -1.75f, -4.0f), glm::vec3(1.0f), 90.0f});
     instancias.push_back({building_b, glm::vec3(8.0f, -1.75f, -10.0f), glm::vec3(1.0f), 90.0f});
     instancias.push_back({building_b, glm::vec3(8.0f, -1.75f, -14.0f), glm::vec3(1.0f), 90.0f});
     instancias.push_back({building_b, glm::vec3(8.0f, -1.75f, -20.0f), glm::vec3(1.0f), 90.0f});
+    instancias.push_back({building_b, glm::vec3(8.0f, -1.75f, -4.0f), glm::vec3(1.0f), 90.0f});
 
 
     instancias.push_back({building_m, glm::vec3(-9.0f, -1.75f, -24.0f), glm::vec3(1.0f), 0.0f});
@@ -376,26 +399,29 @@ void carregaModelosObj(){
     instancias.push_back({building_m, glm::vec3( 3.0f, -1.75f,  -24.0f), glm::vec3(1.0f), 0.0f});
     instancias.push_back({building_m, glm::vec3( 9.0f, -1.75f,  -24.0f), glm::vec3(1.0f), 0.0f});
     
-    instancias.push_back({water_tower, glm::vec3( -12.0f, -1.75f,  -4.0f), glm::vec3(1.0f), 0.0f}); 
-    instancias.push_back({water_tower, glm::vec3( -12.0f, -1.75f,  -10.0f), glm::vec3(1.0f), 0.0f}); 
-    instancias.push_back({water_tower, glm::vec3( -12.0f, -1.75f,  -14.0f), glm::vec3(1.0f), 0.0f}); 
-    instancias.push_back({water_tower, glm::vec3( -12.0f, -1.75f,  -20.0f), glm::vec3(1.0f), 0.0f}); 
+    instancias.push_back({water_tower, glm::vec3( -8.0f, -1.75f,  -2.0f), glm::vec3(1.0f), 0.0f}); 
+    instancias.push_back({water_tower, glm::vec3( -8.0f, -1.75f,  -8.0f), glm::vec3(1.0f), 0.0f}); 
+    instancias.push_back({water_tower, glm::vec3( -8.0f, -1.75f,  -12.0f), glm::vec3(1.0f), 0.0f}); 
+    instancias.push_back({water_tower, glm::vec3( -8.0f, -1.75f,  -18.0f), glm::vec3(1.0f), 0.0f}); 
 
-    instancias.push_back({windmill, glm::vec3( -13.0f, -1.75f,  2.0f), glm::vec3(1.0f), 45.0f}); 
-    instancias.push_back({windmill, glm::vec3( 13.0f, -1.75f, 2.0f), glm::vec3(1.0f), -45.0f}); 
+    instancias.push_back({id_moinho_base, glm::vec3(-10.0f, -1.75f, 2.0f), glm::vec3(1.0f), 45.0f}); 
+    instancias.push_back({id_moinho_pas, glm::vec3(-10.0f, -1.75f, 2.0f), glm::vec3(1.0f), 45.0f}); 
 
-    instancias.push_back({chimney, glm::vec3( 12.0f, -1.75f,  -4.0f), glm::vec3(1.0f), 0.0f}); 
-    instancias.push_back({chimney, glm::vec3( 12.0f, -1.75f,  -10.0f), glm::vec3(1.0f), 0.0f}); 
-    instancias.push_back({chimney, glm::vec3( 12.0f, -1.75f,  -14.0f), glm::vec3(1.0f), 0.0f}); 
-    instancias.push_back({chimney, glm::vec3( 12.0f, -1.75f,  -20.0f), glm::vec3(1.0f), 0.0f}); 
+    instancias.push_back({id_moinho_base, glm::vec3( 10.0f, -1.75f,  2.0f), glm::vec3(1.0f), -45.0f}); 
+    instancias.push_back({id_moinho_pas, glm::vec3( 10.0f, -1.75f, 2.0f), glm::vec3(1.0f), -45.0f}); 
+
+    instancias.push_back({chimney, glm::vec3( 9.0f, -1.75f,  -4.0f), glm::vec3(1.0f), 0.0f}); 
+    instancias.push_back({chimney, glm::vec3( 9.0f, -1.75f,  -10.0f), glm::vec3(1.0f), 0.0f}); 
+    instancias.push_back({chimney, glm::vec3( 9.0f, -1.75f,  -14.0f), glm::vec3(1.0f), 0.0f}); 
+    instancias.push_back({chimney, glm::vec3( 9.0f, -1.75f,  -20.0f), glm::vec3(1.0f), 0.0f}); 
     
 }
-
+// Função para carregar uma textura
 void redimensionaCallback(GLFWwindow* window, int w, int h) {
     WIDTH = w;
     HEIGHT = h;
 }
-
+// Função de callback para o movimento do mouse
 void mouse_callback(GLFWwindow* window, double xpos, double ypos) {
     if (primeiro_mouse) {
         lastX = xpos;
@@ -413,13 +439,15 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos) {
     xoffset *= sensibilidade;
     yoffset *= sensibilidade;
 
-    Cam_yaw -= xoffset;
-    Cam_pitch += yoffset;
+    Cam_yrot -= xoffset;
+    Cam_xrot += yoffset;
 
-    if (Cam_pitch > 89.0f) Cam_pitch = 89.0f;
-    if (Cam_pitch < -89.0f) Cam_pitch = -89.0f;
+    if (Cam_xrot > 89.0f) Cam_xrot = 89.0f;
+    if (Cam_xrot < -89.0f) Cam_xrot = -89.0f;
 }
 
+
+// Função para inicializar o OpenGL e criar a janela
 void inicializaOpenGL() {
     if (!glfwInit()) exit(EXIT_FAILURE);
 
@@ -438,7 +466,7 @@ void inicializaOpenGL() {
 }
 
 
-
+// Função que vai incializar os objetos primitivos, adcionando os triangulos e cores que vão moldar o chão da vila
 void inicializaObjetos() {
     glGenVertexArrays(1, &Vao);
     glBindVertexArray(Vao);
@@ -467,12 +495,12 @@ void inicializaObjetos() {
     
 float cores[] = {
  
-    0.45f, 0.29f, 0.15f, 0.45f, 0.29f, 0.15f, 0.45f, 0.29f, 0.15f, 0.45f, 0.29f, 0.15f, 0.45f, 0.29f, 0.15f, 0.45f, 0.29f, 0.15f,
-    0.45f, 0.29f, 0.15f, 0.45f, 0.29f, 0.15f, 0.45f, 0.29f, 0.15f, 0.45f, 0.29f, 0.15f, 0.45f, 0.29f, 0.15f, 0.45f, 0.29f, 0.15f,
-    0.45f, 0.29f, 0.15f, 0.45f, 0.29f, 0.15f, 0.45f, 0.29f, 0.15f, 0.45f, 0.29f, 0.15f, 0.45f, 0.29f, 0.15f, 0.45f, 0.29f, 0.15f,
-    0.45f, 0.29f, 0.15f, 0.45f, 0.29f, 0.15f, 0.45f, 0.29f, 0.15f, 0.45f, 0.29f, 0.15f, 0.45f, 0.29f, 0.15f, 0.45f, 0.29f, 0.15f,
-    0.45f, 0.29f, 0.15f, 0.45f, 0.29f, 0.15f, 0.45f, 0.29f, 0.15f, 0.45f, 0.29f, 0.15f, 0.45f, 0.29f, 0.15f, 0.45f, 0.29f, 0.15f,
-    0.2f, 0.5f, 0.2f, 0.2f, 0.5f, 0.2f, 0.2f, 0.5f, 0.2f, 0.2f, 0.5f, 0.2f, 0.2f, 0.5f, 0.2f, 0.2f, 0.5f, 0.3f,
+    0.2f, 0.5f, 0.2f, 0.2f, 0.5f, 0.2f, 0.2f, 0.5f, 0.2f, 0.2f, 0.5f, 0.2f, 0.2f, 0.5f, 0.2f, 0.2f, 0.5f, 0.2f,
+    0.2f, 0.5f, 0.2f, 0.2f, 0.5f, 0.2f, 0.2f, 0.5f, 0.2f, 0.2f, 0.5f, 0.2f, 0.2f, 0.5f, 0.2f, 0.2f, 0.5f, 0.2f,
+    0.2f, 0.5f, 0.2f, 0.2f, 0.5f, 0.2f, 0.2f, 0.5f, 0.2f, 0.2f, 0.5f, 0.2f, 0.2f, 0.5f, 0.2f, 0.2f, 0.5f, 0.2f,
+    0.2f, 0.5f, 0.2f, 0.2f, 0.5f, 0.2f, 0.2f, 0.5f, 0.2f, 0.2f, 0.5f, 0.2f, 0.2f, 0.5f, 0.2f, 0.2f, 0.5f, 0.2f,
+    0.2f, 0.5f, 0.2f, 0.2f, 0.5f, 0.2f, 0.2f, 0.5f, 0.2f, 0.2f, 0.5f, 0.2f, 0.2f, 0.5f, 0.2f, 0.2f, 0.5f, 0.2f,
+    0.2f, 0.5f, 0.2f, 0.2f, 0.5f, 0.2f, 0.2f, 0.5f, 0.2f, 0.2f, 0.5f, 0.2f, 0.2f, 0.5f, 0.2f, 0.2f, 0.5f, 0.2f,
 };
     
     GLuint cvbo;
@@ -484,7 +512,10 @@ float cores[] = {
 
 }
 
+
 void inicializaShaders() {
+
+    // Carrega o código dos shaders e vertex utilizados no chão da vila a partir dos arquivos
     std::string vertexCode = leShaderDoArquivo("../assets/shaders/vertex_shader.glsl");
     std::string fragmentCode = leShaderDoArquivo("../assets/shaders/fragment_shader.glsl");
 
@@ -508,6 +539,7 @@ void inicializaShaders() {
     glDeleteShader(fs); 
 
 
+    // Carrega o código dos shaders e fragment utilizados para a aplicação de texturas a partir dos arquivos
 
     std::string vertexCodeTexture = leShaderDoArquivo("../assets/shaders/vertex_texture.glsl");
     std::string fragmentCodeTexture = leShaderDoArquivo("../assets/shaders/fragment_texture_shader.glsl");
@@ -541,25 +573,21 @@ void inicializaShaders() {
 
 }
 
+
+
 void atualizaDirecaoCamera() {
     glm::vec3 front;
-    front.x = sin(glm::radians(-Cam_yaw)) * cos(glm::radians(Cam_pitch));
-    front.y = sin(glm::radians(Cam_pitch)); 
-    front.z = -cos(glm::radians(-Cam_yaw)) * cos(glm::radians(Cam_pitch));
-    Cam_front = glm::normalize(front);
+    front.x = sin(glm::radians(-Cam_yrot)) * cos(glm::radians(Cam_xrot));
+    front.y = sin(glm::radians(Cam_xrot)); 
+    front.z = -cos(glm::radians(-Cam_yrot)) * cos(glm::radians(Cam_xrot));
+    Cam_dir = glm::normalize(front);
 }
 
+
+// Função para tratar a entrada do teclado
 void trataTeclado() {
-    if (glfwGetKey(Window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
-        glfwSetWindowShouldClose(Window, true);
-    }
-
-    if (glfwGetKey(Window, GLFW_KEY_Z) == GLFW_PRESS) {
-        Cam_fov = 20.0f;
-    } else {
-        Cam_fov = 67.0f;
-    }
-
+    
+    // Botão interação para alternar entre o modo wireframe e o modo preenchido
     if (glfwGetKey(Window, GLFW_KEY_G) == GLFW_PRESS) {
         if(!teclaGPress){
         wireframeMode = !wireframeMode;
@@ -574,34 +602,46 @@ void trataTeclado() {
         }
     }
 
-    glm::vec3 Cam_right = glm::normalize(glm::cross(Cam_front, Cam_up));
+    glm::vec3 Cam_right = glm::normalize(glm::cross(Cam_dir, Cam_cima));
 
     if (glfwGetKey(Window, GLFW_KEY_A) == GLFW_PRESS)
-        Cam_pos -= Cam_right * Cam_speed * Tempo_frames;
+        Cam_posicao -= Cam_right * Cam_velo * Tempo_frames;
     if (glfwGetKey(Window, GLFW_KEY_D) == GLFW_PRESS)
-        Cam_pos += Cam_right * Cam_speed * Tempo_frames;
+        Cam_posicao += Cam_right * Cam_velo * Tempo_frames;
     if (glfwGetKey(Window, GLFW_KEY_W) == GLFW_PRESS)
-        Cam_pos += Cam_front * Cam_speed * Tempo_frames;
+        Cam_posicao += Cam_dir * Cam_velo * Tempo_frames;
     if (glfwGetKey(Window, GLFW_KEY_S) == GLFW_PRESS)
-        Cam_pos -= Cam_front * Cam_speed * Tempo_frames;
+        Cam_posicao -= Cam_dir * Cam_velo * Tempo_frames;
     if (glfwGetKey(Window, GLFW_KEY_E) == GLFW_PRESS)
-        Cam_pos.y += Cam_speed * Tempo_frames;
+        Cam_posicao.y += Cam_velo * Tempo_frames;
     if (glfwGetKey(Window, GLFW_KEY_Q) == GLFW_PRESS)
-        Cam_pos.y -= Cam_speed * Tempo_frames;
+        Cam_posicao.y -= Cam_velo * Tempo_frames;
+        
+    if (glfwGetKey(Window, GLFW_KEY_F) == GLFW_PRESS) {
+        glfwSetWindowShouldClose(Window, true);
+    }
+
+    if (glfwGetKey(Window, GLFW_KEY_Z) == GLFW_PRESS) {
+        Cam_fov = 20.0f;
+    } else {
+        Cam_fov = 67.0f;
+    }
 }
 
+// Função para desenhar o cenário (chão da vila)
 void desenhaCenario(glm::mat4 view , glm::mat4 proj ) {
     GLint transformLoc = glGetUniformLocation(Shader_programm, "model");
     glm::mat4 transformacao;
 
     transformacao = glm::mat4(1.0f);
     transformacao = glm::translate(transformacao, glm::vec3(0.0f, -2.0f, -10.0f));
-    transformacao = glm::scale(transformacao, glm::vec3(30.0f, 0.5f, 30.0f));
+    transformacao = glm::scale(transformacao, glm::vec3(25.0f, 0.5f, 30.0f));
     glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(transformacao));
     glDrawArrays(GL_TRIANGLES, 0, 36);
 
 }
 
+// Função para desenhar os modelos OBJ carregados
 void desenhaModeloOBJ(glm::mat4 view, glm::mat4 proj) {
 
     glUseProgram(Shader_texture);
@@ -610,6 +650,7 @@ void desenhaModeloOBJ(glm::mat4 view, glm::mat4 proj) {
     glUniform1i(glGetUniformLocation(Shader_texture, "textura1"), 0); 
 
     for (InstanciaModelo& instancia : instancias) {
+
         TipoModelo& tipo = tiposModelos[instancia.tipoIndex];
 
         glm::mat4 model = glm::mat4(1.0f);
@@ -624,6 +665,17 @@ void desenhaModeloOBJ(glm::mat4 view, glm::mat4 proj) {
             glm::radians(instancia.rotacaoY),
             glm::vec3(0.0f, 1.0f, 0.0f)
         );
+
+        // Condicional que irá realizar a rotação das pás do moinho, fazendo com que elas girem em torno do eixo X
+        if (instancia.tipoIndex == id_moinho_pas) {
+            //move a origem do moinho para o centro da base antes de rotacionar
+            model = glm::translate(model, glm::vec3(0.0f, 1.676f, 0.0f));
+            //rotaciona o moinho em torno do eixo X
+            model = glm::rotate(model, (float)glfwGetTime() * 1.5f, glm::vec3(1.0f, 0.0f, 0.0f));
+            //desloca o moinho de volta para a posição original
+            model = glm::translate(model, glm::vec3(0.0f, -1.676f, 0.0f));
+
+        }
 
         model = glm::scale(
             model,
@@ -665,6 +717,8 @@ void desenhaModeloOBJ(glm::mat4 view, glm::mat4 proj) {
     }
 }
 
+
+// Função principal de renderização, que contém o loop principal do programa
 void renderizacao() {
     double tempoAnterior = glfwGetTime();
 
@@ -675,8 +729,7 @@ void renderizacao() {
         Tempo_frames = (float)(tempoFrameAtual - tempoAnterior);
         tempoAnterior = tempoFrameAtual;
 
-        glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // Limpa o buffer de cor e profundidade antes de desenhar a cena
         
         glUseProgram(Shader_programm);
         glBindVertexArray(Vao);
@@ -684,11 +737,11 @@ void renderizacao() {
         trataTeclado();
         atualizaDirecaoCamera();
 
-        
+        // Renderiza a camera principal
         glViewport(0, 0, WIDTH, HEIGHT);
 
        
-        glm::mat4 viewPerspectiva = glm::lookAt(Cam_pos, Cam_pos + Cam_front, Cam_up);
+        glm::mat4 viewPerspectiva = glm::lookAt(Cam_posicao, Cam_posicao + Cam_dir, Cam_cima);
         GLint viewLoc = glGetUniformLocation(Shader_programm, "view");
         glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(viewPerspectiva));
 
@@ -701,9 +754,9 @@ void renderizacao() {
         desenhaModeloOBJ(viewPerspectiva, projPerspectiva);
 
     
-        glClear(GL_DEPTH_BUFFER_BIT);
+        glClear(GL_DEPTH_BUFFER_BIT); // Limpa o buffer de profundidade antes de desenhar a miniatura
 
-        
+        // Renderiza o minimapa no canto superior direito
         int mapa_size = 300; 
         glViewport(WIDTH - mapa_size, HEIGHT - mapa_size, mapa_size, mapa_size);
 
